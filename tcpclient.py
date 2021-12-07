@@ -133,9 +133,10 @@ def sendPacket(argv):
     sock = socket.socket(socket.AF_INET,
                          socket.SOCK_DGRAM)  # UDP
 
-    sock.bind((UDP_IP, UDP_PORT))
-    sock.sendto(packet, addr_udpl)
+    # sock.bind((UDP_IP, UDP_PORT))
+    # sock.sendto(packet, addr_udpl)
 
+    sock.sendto(packet, (UDP_IP, UDP_PORT))
 
 # retransmission_time = datetime.timedelta(seconds=3) # adjust per TCP standard
 # seg_size = 576
