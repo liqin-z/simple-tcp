@@ -125,7 +125,6 @@ def sendPacket(argv):
     port_ack = argv[5]
 
     packet = TCPPacket(port_ack, port_udpl, window_size, file_bytes)
-    print(str(packet))
     header = packet.buildPacket()
     packet = header + file_bytes
 
