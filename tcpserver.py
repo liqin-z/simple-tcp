@@ -4,16 +4,20 @@
 import sys
 import socket
 
-# Create a TCP/IP socket
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-def packetReciver(argv):
-    file_name = argv[1]
-    port_lstn = argv[2]
+def receivePacket(argv):
+    # Create a UDP socket
+    sock = socket.socket(socket.AF_INET,
+                         socket.SOCK_DGRAM)
+    out_file_name = argv[1]
+    port_listen = argv[2]
     addr_ack = argv[3]
     port_ack = argv[4]
 
-# receive data from listening port
+    # receive data from listening port
+    sock.bind(("localhost", port_listen))
+    while True:
+        packet, addr_udpl = sock.recvfrom(2048)
+
 
 
 # write data to a file
@@ -23,4 +27,4 @@ def packetReciver(argv):
 
 
 if __name__ == "__main__":
-    packetReciver(sys.argv)
+    receivePacket(sys.argv)

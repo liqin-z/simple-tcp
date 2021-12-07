@@ -17,7 +17,7 @@ class TCPPacket:
     def __init__(self, src_port, dst_port, window_size, data):
         self.src_port = src_port                    # 16 bits
         self.dst_port = dst_port                    # 16 bits
-        self.seq_num = self.get_start_seq_num()     # 32 bits
+        self.seq_num = 0                            # 32 bits
         self.ack_num = 0                            # 32 bits
         self.data_offset = 5                        # 4 bits - 20 bytes, 5 words
         self.reserved_field = 0                      # 3 bits
@@ -34,7 +34,7 @@ class TCPPacket:
         self.checksum = 0                           # 16 bits
         self.urg_pointer = 0                        # 16 bits
         self.data = data
-        self.packet_type = ""
+        self.state = ""
 
     def buildPacket(self) -> bytes:
         # the packet should be exactly 20 bytes
@@ -80,10 +80,6 @@ class TCPPacket:
 
         return header
 
-    @staticmethod
-    def get_start_seq_num():
-        return random.randint(0, 4294967295)
-
     # Computed over TCP header and data
     def checkSum(self, packet):
         if len(packet) % 2 != 0:
@@ -96,19 +92,19 @@ class TCPPacket:
         return (~res) & 0xffff
 
 
-    def updateType(self):
+    def updateState(self):
         if self.flag_syn == 1 and self.flag_ack == 1:
-            self.packet_type = "SYN-ACK"
+            self.state = "SYN-ACK"
         elif self.flag_ack == 1 and self.flag_fin == 1:
-            self.packet_type = "FIN-ACK"
+            self.state = "FIN-ACK"
         elif self.flag_syn == 1:
-            self.packet_type = "SYN"
+            self.state = "SYN"
         elif self.flag_ack == 1:
-            self.packet_type = "ACK"
+            self.state = "ACK"
         elif self.flag_fin == 1:
-            self.packet_type = "FIN"
+            self.state = "FIN"
         elif self.data != "":
-            self.packet_type = "DATA"
+            self.state = "DATA"
         return
 
 
@@ -133,8 +129,7 @@ def sendPacket(argv):
     header = packet.buildPacket()
     packet = header + file_bytes
 
-    return
-    UDP_IP = "127.0.0.1"
+    UDP_IP = "localhost"
     UDP_PORT = 12000
     sock = socket.socket(socket.AF_INET,
                          socket.SOCK_DGRAM)  # UDP
