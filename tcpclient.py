@@ -36,8 +36,7 @@ class TCPPacket:
         self.data = data
 
     def buildPacket(self) -> bytes:
-
-        # len(packet) returns bytes
+        # the packet should be exactly 20 bytes
         packet = struct.pack(
             'HHIIHHH',
             int(self.src_port),      # Source Port
@@ -49,7 +48,8 @@ class TCPPacket:
             self.urg_pointer         # Urgent pointer
         )
 
-        # compose 16 bits
+        # compose 16 bits using header_length(offset),
+        #                       reserve_field and flags
         self.data_offset = bitarray('{0:04b}'.format(self.data_offset))
         self.reserved_field = bitarray('{0:03b}'.format(self.reserved_field))
         flags = bitarray([
@@ -73,20 +73,31 @@ class TCPPacket:
         )
         packet = packet[:12] + offset_flags_byte + packet[12:]
 
-        checksum = self.checkSum(packet + self.data)
-        # packet = packet[:16] + struct.pack('H', checksum) + packet[18:]
+        # compute checksum based on the header and data
+        real_checksum = self.checkSum(packet + bytes(self.data))
+        real_checksum2 = self.checkSum2(packet + bytes(self.data))
+        print(real_checksum)
+        print(real_checksum2)
 
-        # return struct.unpack('!BBBBBBBBB',pack)
-        # return struct.unpack('HHII',packet)
+        header = packet[:16] + struct.pack('H', real_checksum) + packet[18:]
 
-        return packet
+        return header
 
     @staticmethod
     def get_start_seq_num():
         return random.randint(0, 4294967295)
 
     # Computed over TCP header and data
-    def checkSum(packet) -> int:
+    def checkSum(self, packet):
+        if len(packet) % 2 == 1:
+            packet += "\0"
+        s = sum(array.array("H", packet))
+        s = (s >> 16) + (s & 0xffff)
+        s += s >> 16
+        s = ~s
+        return (((s>>8)&0xff)|s<<8) & 0xffff
+
+    def checkSum2(self, packet):
         if len(packet) % 2 != 0:
             packet += b'\0'
 
@@ -99,16 +110,16 @@ class TCPPacket:
 
 def packetSender(argv):
     file_name = argv[1]
-    file_bytes = readFiles(file_name)
+    file_bytes = bytes(readFiles(file_name))
 
     addr_udpl = argv[2]    # dest_address
     port_udpl = argv[3]    # dest_port
     window_size = argv[4]
     port_ack = argv[5]
 
-    pkt = TCPPacket(port_ack, port_udpl, window_size, file_bytes)
-    print(pkt.buildPacket())
-    return
+    packet = TCPPacket(port_ack, port_udpl, window_size, file_bytes)
+    header = packet.buildPacket()
+    packet = header + file_bytes
 
     UDP_IP = "127.0.0.1"
     UDP_PORT = 12000
@@ -116,7 +127,7 @@ def packetSender(argv):
                          socket.SOCK_DGRAM)  # UDP
 
     sock.bind((UDP_IP, UDP_PORT))
-    sock.sendto(pkt.buildPacket(), addr_udpl)
+    sock.sendto(packet, addr_udpl)
 
 
 # retransmission_time = datetime.timedelta(seconds=3) # adjust per TCP standard
@@ -134,5 +145,5 @@ def readFiles(file_name):
 
 
 if __name__ == "__main__":
-    print(sys.argv)
+    # print(sys.argv)
     packetSender(sys.argv)
