@@ -3,12 +3,14 @@
 # input format
 # tcpclient file address_of_udpl port_number_of_udpl windowsize ack_port_number
 
-import datetime
+import array
+import random
+import socket
 import struct
 import sys
-import socket
-import random
-import array
+
+from bitarray import bitarray
+from bitarray.util import ba2int
 
 class TCPPacket:
     # TCP SEGMENT STRUCTURE
@@ -17,7 +19,7 @@ class TCPPacket:
         self.dst_port = dst_port                    # 16 bits
         self.seq_num = self.get_start_seq_num()     # 32 bits
         self.ack_num = 0                            # 32 bits
-        self.data_offset = 0                        # 4 bits
+        self.data_offset = 5                        # 4 bits - 20 bytes, 5 words
         self.reserved_field = 0                      # 3 bits
         self.flag_ns = 0                             # 1 bit - ignore
         self.flag_cwr = 0                            # 1 bit - ignore
@@ -33,10 +35,24 @@ class TCPPacket:
         self.urg_pointer = 0                        # 16 bits
         self.data = data
 
-    def build(self) -> bytes:
+    def buildPacket(self) -> bytes:
 
-        flags = struct.pack(
-            '!BBBBBBBBB',
+        # len(packet) returns bytes
+        packet = struct.pack(
+            'HHIIHHH',
+            int(self.src_port),      # Source Port
+            int(self.dst_port),      # Destination Port
+            self.seq_num,            # Sequence Number
+            self.ack_num,            # ACK Number
+            int(self.window_size),   # Window
+            self.checksum,           # Checksum (init)
+            self.urg_pointer         # Urgent pointer
+        )
+
+        # compose 16 bits
+        self.data_offset = bitarray('{0:04b}'.format(self.data_offset))
+        self.reserved_field = bitarray('{0:03b}'.format(self.reserved_field))
+        flags = bitarray([
             self.flag_ns,
             self.flag_cwr,
             self.flag_ece,
@@ -46,47 +62,31 @@ class TCPPacket:
             self.flag_rst,
             self.flag_syn,
             self.flag_fin
+        ])
+        offset_flags = self.data_offset + self.reserved_field + flags
+
+        # convert to integer and pack into tcp header as bytes
+        offset_flag_int = ba2int(offset_flags)
+        offset_flags_byte = struct.pack(
+            'H',
+            offset_flag_int
         )
+        packet = packet[:12] + offset_flags_byte + packet[12:]
 
-        print(int(self.src_port))
-        print(int(self.dst_port))
-
-        packet = struct.pack(
-            # '!HHIIBHHH',
-            'HH',
-            int(self.src_port),      # Source Port
-            int(self.dst_port),      # Destination Port
-            # self.seq_num,       # Sequence Number
-            # self.ack_num,       # ACK Number
-            # self.data_offset,   # Data Offset
-            # flags,               # Flags
-            # self.window_size,   # Window
-            # self.checksum,      # Checksum (init)
-            # self.urg_pointer    # Urgent pointer
-        )
-
-        # pseudo_hdr = struct.pack(
-        #     '!4s4sHH',
-        #     socket.inet_aton(self.src_host),    # Source Address
-        #     socket.inet_aton(self.dst_host),    # Destination Address
-        #     socket.IPPROTO_TCP,                 # PTCL
-        #     len(packet)                         # TCP Length
-        # )
-
-        # checksum = chksum(pseudo_hdr + packet)
-
+        checksum = self.checkSum(packet + self.data)
         # packet = packet[:16] + struct.pack('H', checksum) + packet[18:]
 
         # return struct.unpack('!BBBBBBBBB',pack)
-        return struct.unpack('HH',packet)
+        # return struct.unpack('HHII',packet)
 
+        return packet
 
     @staticmethod
     def get_start_seq_num():
         return random.randint(0, 4294967295)
 
     # Computed over TCP header and data
-    def chksum(packet) -> int:
+    def checkSum(packet) -> int:
         if len(packet) % 2 != 0:
             packet += b'\0'
 
@@ -107,7 +107,7 @@ def packetSender(argv):
     port_ack = argv[5]
 
     pkt = TCPPacket(port_ack, port_udpl, window_size, file_bytes)
-    print(pkt.build())
+    print(pkt.buildPacket())
     return
 
     UDP_IP = "127.0.0.1"
@@ -116,7 +116,7 @@ def packetSender(argv):
                          socket.SOCK_DGRAM)  # UDP
 
     sock.bind((UDP_IP, UDP_PORT))
-    sock.sendto(pkt.build(), addr_udpl)
+    sock.sendto(pkt.buildPacket(), addr_udpl)
 
 
 # retransmission_time = datetime.timedelta(seconds=3) # adjust per TCP standard
