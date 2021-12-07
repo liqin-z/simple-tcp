@@ -34,6 +34,7 @@ class TCPPacket:
         self.checksum = 0                           # 16 bits
         self.urg_pointer = 0                        # 16 bits
         self.data = data
+        self.packet_type = ""
 
     def buildPacket(self) -> bytes:
         # the packet should be exactly 20 bytes
@@ -75,10 +76,6 @@ class TCPPacket:
 
         # compute checksum based on the header and data
         real_checksum = self.checkSum(packet + bytes(self.data))
-        real_checksum2 = self.checkSum2(packet + bytes(self.data))
-        print(real_checksum)
-        print(real_checksum2)
-
         header = packet[:16] + struct.pack('H', real_checksum) + packet[18:]
 
         return header
@@ -89,15 +86,6 @@ class TCPPacket:
 
     # Computed over TCP header and data
     def checkSum(self, packet):
-        if len(packet) % 2 == 1:
-            packet += "\0"
-        s = sum(array.array("H", packet))
-        s = (s >> 16) + (s & 0xffff)
-        s += s >> 16
-        s = ~s
-        return (((s>>8)&0xff)|s<<8) & 0xffff
-
-    def checkSum2(self, packet):
         if len(packet) % 2 != 0:
             packet += b'\0'
 
@@ -108,7 +96,30 @@ class TCPPacket:
         return (~res) & 0xffff
 
 
-def packetSender(argv):
+    def updateType(self):
+        if self.flag_syn == 1 and self.flag_ack == 1:
+            self.packet_type = "SYN-ACK"
+        elif self.flag_ack == 1 and self.flag_fin == 1:
+            self.packet_type = "FIN-ACK"
+        elif self.flag_syn == 1:
+            self.packet_type = "SYN"
+        elif self.flag_ack == 1:
+            self.packet_type = "ACK"
+        elif self.flag_fin == 1:
+            self.packet_type = "FIN"
+        elif self.data != "":
+            self.packet_type = "DATA"
+        return
+
+
+    def updateFlag(self, ack=False, syn=False, fin=False):
+        self.flag_ack = 1 if ack else 0
+        self.flag_syn = 1 if syn else 0
+        self.flag_fin = 1 if fin else 0
+        return
+
+
+def sendPacket(argv):
     file_name = argv[1]
     file_bytes = bytes(readFiles(file_name))
 
@@ -118,9 +129,11 @@ def packetSender(argv):
     port_ack = argv[5]
 
     packet = TCPPacket(port_ack, port_udpl, window_size, file_bytes)
+    print(str(packet))
     header = packet.buildPacket()
     packet = header + file_bytes
 
+    return
     UDP_IP = "127.0.0.1"
     UDP_PORT = 12000
     sock = socket.socket(socket.AF_INET,
@@ -146,4 +159,4 @@ def readFiles(file_name):
 
 if __name__ == "__main__":
     # print(sys.argv)
-    packetSender(sys.argv)
+    sendPacket(sys.argv)
