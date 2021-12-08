@@ -15,7 +15,7 @@ def receivePacket(argv):
     port_ack = argv[4]
 
     # receive data from listening port
-    sock.bind(("localhost", int(port_listen)))
+    sock.bind((addr_ack, int(port_listen)))
     while True:
         filebytes, addr_udpl = sock.recvfrom(2048)
         # ack_to_send = ""

@@ -131,9 +131,7 @@ def sendPacket(argv):
     sock = socket.socket(socket.AF_INET,
                          socket.SOCK_DGRAM)  # UDP
 
-    # sock.bind((UDP_IP, UDP_PORT))
-    # sock.sendto(packet, addr_udpl)
-    sock.bind(("localhost", 8080))
+    sock.bind((addr_udpl, int(port_ack)))
     sock.sendto(packet, (addr_udpl, int(port_udpl)))
 
 # retransmission_time = datetime.timedelta(seconds=3) # adjust per TCP standard
