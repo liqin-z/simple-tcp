@@ -53,7 +53,6 @@ def receivePacket(argv):
         if computed_checksum == stored_checksum:
             # print("Checksum passed!")
             data = received_packet[20:]
-            print(data)
 
             # write data to a file
             with open('./'+out_file_name, 'wb+') as f:
@@ -67,6 +66,11 @@ def receivePacket(argv):
             # immediately send previous ACKed num
             sock.sendto(str(CUR_ACKED_NUM).encode(), (ack_addr, ack_port))
 
+        flags = struct.unpack(
+            "H",
+            tcp_header[12:14]
+        )[0]
+        print(flags)
 
 
 
