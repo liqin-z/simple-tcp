@@ -16,8 +16,10 @@ from utils import TCPPacket
 MSS = 576 # bytes
 WINDOW_SIZE = int(sys.argv[4]) # bytes
 CUR_BYTES_READ = 0
+CUR_ACKED_NUM = 0
+TIMEOUT = 3 # seconds
 
-def sendPacket(argv, data):
+def sendPacket(argv, data, isfin=False):
     global CUR_BYTES_READ
     # test
     # print(data)
@@ -27,8 +29,11 @@ def sendPacket(argv, data):
 
     packet = TCPPacket(port_ack, port_udpl, WINDOW_SIZE, data)
     if CUR_BYTES_READ == MSS and packet.flag_syn == 0:
-        # read the first packet
+        # The first packet, I'm not implementing syn functionality here
         packet.updateFlag(syn=1)
+        packet.updateState()
+    if isfin:
+        packet.updateFlag(fin=1)
         packet.updateState()
 
     header = packet.buildPacket()
@@ -40,6 +45,14 @@ def sendPacket(argv, data):
     sock.bind((addr_udpl, int(port_ack)))
     sock.sendto(packet, (addr_udpl, int(port_udpl)))
 
+
+    # receive acks from server
+    print("can i receive after i send?")
+    received_ack_num, server_addr = sock.recvfrom(2048)
+    print(received_ack_num.decode())
+    print(server_addr)
+
+
 # retransmission_time = datetime.timedelta(seconds=3) # adjust per TCP standard
 
 
@@ -50,6 +63,7 @@ def readChunks(file, chunk_size):
         if not data:
             break
         yield data
+
 
 def readFiles(file_name):
     global CUR_BYTES_READ
@@ -65,7 +79,11 @@ def readFiles(file_name):
                     # wait for acks
                     pass
                 else:
-                    sendPacket(sys.argv, data)
+                    if len(data) == chunk_size:
+                        sendPacket(sys.argv, data)
+                    else:
+                        # end of file, close the socket
+                        sendPacket(sys.argv, data, isfin=True)
 
     except IOError:
         print("Failed to find the file '{}' under current directory!".format(file_name))

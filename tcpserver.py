@@ -7,7 +7,10 @@ import socket
 from utils import TCPPacket
 from utils import checkSum
 
+CUR_ACKED_NUM = 0
+
 def receivePacket(argv):
+    global CUR_ACKED_NUM
     # Create a UDP socket
     sock = socket.socket(socket.AF_INET,
                          socket.SOCK_DGRAM)
@@ -25,12 +28,10 @@ def receivePacket(argv):
 
         # unpack header -> tuples
         # check sequence number
-        # TODO
         seq_num = struct.unpack(
             "I",
             tcp_header[4:8]
         )[0]
-
 
         # compute checksum to verify correctness
         # change to bytearray because byte is immutable
@@ -59,12 +60,14 @@ def receivePacket(argv):
                 f.write(data)
 
             # send ACK to addr_ack, port_ack
-
-
+            sock.sendto(str(seq_num+1).encode(), (ack_addr, ack_port))
+            CUR_ACKED_NUM = seq_num + 1
         else:
             # the pkt is corrupted
             # immediately send previous ACKed num
-            pass
+            sock.sendto(str(CUR_ACKED_NUM).encode(), (ack_addr, ack_port))
+
+
 
 
 
