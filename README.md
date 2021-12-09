@@ -19,9 +19,9 @@ python tcpclient.py infile localhost 41192 50 8080
 
 ### TODOs
 
-- A window to send all packets simultaneously
+- Distinguish sent but not acked
 - Wait for ACKs within timeout range
-- Set timer and timeout action
+
 
 ### About newudpl
 http://www.cs.columbia.edu/~hgs/research/projects/newudpl/newudpl-1.4/newudpl.html

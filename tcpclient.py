@@ -21,11 +21,13 @@ MSS = 576 # bytes
 WINDOW_SIZE = int(sys.argv[4]) # bytes
 CUR_BYTES_READ = 0
 CUR_ACKED_NUM = 0
+CACHE_ACK = []
 TIMEOUT = timedelta(seconds=10) # seconds
 
 def sendPacket(argv, data, seq_num, isfin=False):
     global CUR_BYTES_READ
     global CUR_ACKED_NUM
+    global CACHE_ACK
     # test
     # print(data)
     addr_udpl = argv[2]    # dest_address
@@ -63,16 +65,17 @@ def sendPacket(argv, data, seq_num, isfin=False):
     elif received_ack == CUR_ACKED_NUM + 1:
         CUR_ACKED_NUM += 1
         CUR_BYTES_READ -= MSS # move window by 1 segment
+    elif received_ack > CUR_ACKED_NUM + 1:
+        if received_ack not in CACHE_ACK:
+            CACHE_ACK.append(received_ack)
     else:
-        # out of order pkt or delayed ack - ignore
         pass
-
 
 # send all packets in the given window
 def sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads):
     for seq in range(seq_num, seq_num + window_size_n):
         if seq >= len(data_packets):
-            break
+            return False # end of data
         data = data_packets[seq]
         if len(data) == chunk_size:
             threads.append(
@@ -85,6 +88,7 @@ def sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads
 
     for t in threads:
         t.join()
+    return True
 
 
 # read binary data from a file
@@ -97,6 +101,7 @@ def readChunks(file, chunk_size):
 
 
 def readFiles(file_name):
+    global CUR_ACKED_NUM
     global CUR_BYTES_READ
     global WINDOW_SIZE
     # for test
@@ -114,22 +119,35 @@ def readFiles(file_name):
             threads = [] # one thread for every sent packet
 
             # while seq_num < len(data_packets):
-                # while CUR_ACKED_NUM <= cur_window_end: # ack 4 should be sent for seq 3
+                # while CUR_ACKED_NUM <= cur_window_end:
 
             while True:
                 start_timer = timer()
-                sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads)
+                if not sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads):
+                    break
+
+                while CUR_ACKED_NUM + 1 in CACHE_ACK:
+                    # read ack from cache if out of order
+                    CUR_ACKED_NUM += 1
+                    seq_num = CUR_ACKED_NUM
+                    start_timer = timer() # reset timer when window move
 
                 if CUR_ACKED_NUM > seq_num:
                     seq_num = CUR_ACKED_NUM
                     start_timer = timer() # reset timer when window move
+
+                    # how to not send "sent not acked pkt" again?
+                    # implement in below function
+                    if not sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads):
+                        break
+
+                end_timer = timer()
+                if timedelta(seconds=end_timer - start_timer) > TIMEOUT:
+                    start_timer = timer()
+                    if not sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads):
+                        break
                 else:
-                    end_timer = timer()
-                    if timedelta(seconds=end_timer - start_timer) > TIMEOUT:
-                        start_timer = timer()
-                        sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads)
-                    else:
-                        pass
+                    pass
 
                     # immediately resend the unACKed packet
                     # if CUR_ACKED_NUM != seq_num:
@@ -153,7 +171,7 @@ def readFiles(file_name):
 
 
 if __name__ == "__main__":
-    print(sys.argv)
+    # print(sys.argv)
     file_name = sys.argv[1]
     readFiles(file_name)
     # sendPacket(sys.argv)
