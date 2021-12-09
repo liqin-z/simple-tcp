@@ -5,17 +5,7 @@ import sys
 import array
 import socket
 from utils import TCPPacket
-
-
-def myCheckSum(packet):
-    print(packet)
-    if len(packet) % 2 != 0:
-        packet += b'\0'
-
-    res = sum(array.array("H", packet))
-    res = (res >> 16) + (res & 0xffff)
-    res += res >> 16
-    return (~res) & 0xffff
+from utils import checkSum
 
 def receivePacket(argv):
     # Create a UDP socket
@@ -50,13 +40,16 @@ def receivePacket(argv):
             "H",
             0
         )
-        computed_checksum = myCheckSum(pkt_deep_copy)
+        computed_checksum = checkSum(pkt_deep_copy)
+        # print("c:", computed_checksum)
+
         stored_checksum = struct.unpack(
             "H",
             tcp_header[16:18]
-        )
+        )[0]
+        # print("s:", stored_checksum)
 
-        if computed_checksum == stored_checksum[0]:
+        if computed_checksum == stored_checksum:
             # print("Checksum passed!")
             data = received_packet[20:]
             print(data)

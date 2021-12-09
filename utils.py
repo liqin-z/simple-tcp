@@ -66,21 +66,10 @@ class TCPPacket:
         packet = packet[:12] + offset_flags_byte + packet[12:]
 
         # compute checksum based on the header and data
-        real_checksum = self.checkSum(packet + self.data)
+        real_checksum = checkSum(packet + self.data)
         header = packet[:16] + struct.pack('H', real_checksum) + packet[18:]
 
         return header
-
-    # Computed over TCP header and data
-    def checkSum(self, packet):
-        if len(packet) % 2 != 0:
-            packet += b'\0'
-
-        res = sum(array.array("H", packet))
-        res = (res >> 16) + (res & 0xffff)
-        res += res >> 16
-
-        return (~res) & 0xffff
 
 
     def updateState(self):
@@ -104,3 +93,14 @@ class TCPPacket:
         self.flag_syn = 1 if syn else 0
         self.flag_fin = 1 if fin else 0
         return
+
+# Computed over TCP header and data
+def checkSum(packet):
+    if len(packet) % 2 != 0:
+        packet += b'\0'
+
+    res = sum(array.array("H", packet))
+    res = (res >> 16) + (res & 0xffff)
+    res += res >> 16
+
+    return (~res) & 0xffff
