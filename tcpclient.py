@@ -14,16 +14,23 @@ from bitarray.util import ba2int
 from utils import TCPPacket
 
 MSS = 576 # bytes
+WINDOW_SIZE = int(sys.argv[4]) # bytes
+CUR_BYTES_READ = 0
 
 def sendPacket(argv, data):
+    global CUR_BYTES_READ
     # test
     # print(data)
     addr_udpl = argv[2]    # dest_address
     port_udpl = argv[3]    # dest_port
-    window_size = argv[4]
     port_ack = argv[5]
 
-    packet = TCPPacket(port_ack, port_udpl, window_size, data)
+    packet = TCPPacket(port_ack, port_udpl, WINDOW_SIZE, data)
+    if CUR_BYTES_READ == MSS and packet.flag_syn == 0:
+        # read the first packet
+        packet.updateFlag(syn=1)
+        packet.updateState()
+
     header = packet.buildPacket()
     packet = header + data
 
@@ -45,13 +52,21 @@ def readChunks(file, chunk_size):
         yield data
 
 def readFiles(file_name):
+    global CUR_BYTES_READ
+    global WINDOW_SIZE
     # for test
     # chunk_size = 2
     chunk_size = MSS - 20
     try:
         with open(file_name, "rb") as f:
             for data in readChunks(f, chunk_size):
-                sendPacket(sys.argv, data)
+                CUR_BYTES_READ += MSS
+                while CUR_BYTES_READ > WINDOW_SIZE:
+                    # wait for acks
+                    pass
+                else:
+                    sendPacket(sys.argv, data)
+
     except IOError:
         print("Failed to find the file '{}' under current directory!".format(file_name))
     return
