@@ -109,5 +109,5 @@ def checkSum(packet):
     res = sum(array.array("H", packet))
     res = (res >> 16) + (res & 0xffff)
     res += res >> 16
-
+    # get last 16 digits
     return (~res) & 0xffff

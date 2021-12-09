@@ -78,6 +78,7 @@ def receivePacket(argv):
         flag_ack = bin_flags[-5]
         flag_rst = bin_flags[-3]
         flag_syn = bin_flags[-2]
+        # above are not used for functionality
         flag_fin = bin_flags[-1]
 
         if flag_fin:

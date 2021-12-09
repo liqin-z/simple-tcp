@@ -8,6 +8,10 @@ import random
 import socket
 import struct
 import sys
+import time
+from timeit import default_timer as timer
+from threading import Thread
+from datetime import timedelta
 
 from bitarray import bitarray
 from bitarray.util import ba2int
@@ -17,7 +21,7 @@ MSS = 576 # bytes
 WINDOW_SIZE = int(sys.argv[4]) # bytes
 CUR_BYTES_READ = 0
 CUR_ACKED_NUM = 0
-TIMEOUT = 3 # seconds
+TIMEOUT = timedelta(seconds=10) # seconds
 
 def sendPacket(argv, data, seq_num, isfin=False):
     global CUR_BYTES_READ
@@ -63,7 +67,24 @@ def sendPacket(argv, data, seq_num, isfin=False):
         # out of order pkt or delayed ack - ignore
         pass
 
-# retransmission_time = datetime.timedelta(seconds=3) # adjust per TCP standard
+
+# send all packets in the given window
+def sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads):
+    for seq in range(seq_num, seq_num + window_size_n):
+        if seq >= len(data_packets):
+            break
+        data = data_packets[seq]
+        if len(data) == chunk_size:
+            threads.append(
+                Thread(target=sendPacket, args=(sys.argv, data, seq)))
+        else:
+            # end of file, close the socket
+            threads.append(
+                Thread(target=sendPacket, args=(sys.argv, data, seq, True)))
+        threads[-1].start()
+
+    for t in threads:
+        t.join()
 
 
 # read binary data from a file
@@ -88,23 +109,43 @@ def readFiles(file_name):
                 data_packets.append(data)
 
             seq_num = 0
-            while seq_num < len(data_packets):
-                # my decision of solving out of order packets
-                # immediately resend the unACKed packet
-                if CUR_ACKED_NUM != seq_num:
+            # number of packets in the window
+            window_size_n = WINDOW_SIZE // MSS
+            threads = [] # one thread for every sent packet
+
+            # while seq_num < len(data_packets):
+                # while CUR_ACKED_NUM <= cur_window_end: # ack 4 should be sent for seq 3
+
+            while True:
+                start_timer = timer()
+                sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads)
+
+                if CUR_ACKED_NUM > seq_num:
                     seq_num = CUR_ACKED_NUM
-                # CUR_BYTES_READ += MSS
-                # while CUR_BYTES_READ > WINDOW_SIZE:
-                #     # wait for acks
-                #     pass
-                # else:
-                data = data_packets[seq_num]
-                if len(data) == chunk_size:
-                    sendPacket(sys.argv, data, seq_num)
+                    start_timer = timer() # reset timer when window move
                 else:
-                    # end of file, close the socket
-                    sendPacket(sys.argv, data, seq_num, isfin=True)
-                seq_num += 1
+                    end_timer = timer()
+                    if timedelta(seconds=end_timer - start_timer) > TIMEOUT:
+                        start_timer = timer()
+                        sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads)
+                    else:
+                        pass
+
+                    # immediately resend the unACKed packet
+                    # if CUR_ACKED_NUM != seq_num:
+                    #     seq_num = CUR_ACKED_NUM
+                    # # CUR_BYTES_READ += MSS
+                    # # while CUR_BYTES_READ > WINDOW_SIZE:
+                    # #     # wait for acks
+                    # #     pass
+                    # # else:
+                    # data = data_packets[seq_num]
+                    # if len(data) == chunk_size:
+                    #     sendPacket(sys.argv, data, seq_num)
+                    # else:
+                    #     # end of file, close the socket
+                    #     sendPacket(sys.argv, data, seq_num, isfin=True)
+                    # seq_num += 1
 
     except IOError:
         print("Failed to find the file '{}' under current directory!".format(file_name))
