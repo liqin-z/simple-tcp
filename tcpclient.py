@@ -58,7 +58,7 @@ def readFiles(file_name):
     # chunk_size = 2
     chunk_size = MSS - 20
     try:
-        with open(file_name, "rb") as f:
+        with open(file_name, mode="rb") as f:
             for data in readChunks(f, chunk_size):
                 CUR_BYTES_READ += MSS
                 while CUR_BYTES_READ > WINDOW_SIZE:

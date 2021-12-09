@@ -66,7 +66,7 @@ class TCPPacket:
         packet = packet[:12] + offset_flags_byte + packet[12:]
 
         # compute checksum based on the header and data
-        real_checksum = self.checkSum(packet + bytes(self.data))
+        real_checksum = self.checkSum(packet + self.data)
         header = packet[:16] + struct.pack('H', real_checksum) + packet[18:]
 
         return header

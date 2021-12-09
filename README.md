@@ -18,5 +18,14 @@ python tcpclient.py infile localhost 41192 50 8080
 ```
 
 
-### Learn more about newudpl
+### About newudpl
 http://www.cs.columbia.edu/~hgs/research/projects/newudpl/newudpl-1.4/newudpl.html
+
+### Common error
+```bash
+# Solving conflict port 
+socket.error: [Errno 48] Address already in use
+-------------------------------------------------
+ps -fA | grep python
+kill <pid>
+```
