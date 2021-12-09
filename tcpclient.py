@@ -19,18 +19,52 @@ from utils import TCPPacket
 MSS = 576  # bytes
 WINDOW_SIZE = int(sys.argv[4])  # bytes
 CUR_BYTES_READ = 0
-CUR_ACKED_NUM = 0
-CACHE_ACK = []
-SENT_NOT_ACKED = []  # packet seqs that is not acked
+ACKED_SEQ = 0
+CACHE_ACK = set()
+SENT_NOT_ACKED_SEQ = []  # packet seqs that is not acked
 TIMEOUT = timedelta(seconds=10)  # seconds
 seq_num = 0
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
 sock.bind((sys.argv[2], int(sys.argv[5])))
 
+
+class ACKThread(Thread):
+    def __init__(self, end):
+        Thread.__init__(self)
+        self.end = end
+        print("ACK Thread is listening!")
+
+    def run(self):
+        while True:
+            global ACKED_SEQ
+
+            received_ack_pkt, server_addr = sock.recvfrom(2048)
+            ack_header = received_ack_pkt[:20]
+            ack_num = struct.unpack(
+                "I",
+                ack_header[8:12]
+            )[0]
+
+            print(ack_num)
+            if ack_num not in CACHE_ACK:
+                CACHE_ACK.add(ack_num)
+            if ack_num == ACKED_SEQ + 1:
+                ACKED_SEQ = ack_num
+
+            # ack_num is 4, ACKED_SEQ is 3,
+            # CACHE has [4,5,6,7] -> ACKED_SEQ becomes 6
+            while ACKED_SEQ + 1 in CACHE_ACK:
+                ACKED_SEQ += 1
+            ACKED_SEQ -= 1
+
+            if ACKED_SEQ >= self.end:
+                break
+
+
 def sendPacket(argv, data, seq_num, isfin=False):
     global CUR_BYTES_READ
-    global CUR_ACKED_NUM
+    global ACKED_SEQ
     global CACHE_ACK
     global sock
     # test
@@ -57,31 +91,31 @@ def sendPacket(argv, data, seq_num, isfin=False):
 
     # receive acks from server
     # update largest Acked number
-    received_ack_num, server_addr = sock.recvfrom(2048)
-    received_ack = int(received_ack_num.decode())
-    if received_ack == CUR_ACKED_NUM:
-        # missing pkg
-        pass
-    elif received_ack == CUR_ACKED_NUM + 1:
-        CUR_ACKED_NUM += 1
-        CUR_BYTES_READ -= MSS  # move window by 1 segment
-    elif received_ack > CUR_ACKED_NUM + 1:
-        if received_ack not in CACHE_ACK:
-            CACHE_ACK.append(received_ack)
-    else:
-        pass
+    # received_ack_pkt, server_addr = sock.recvfrom(2048)
+    # print(received_ack_pkt)
+    # if received_ack == ACKED_SEQ:
+    #     # missing pkg
+    #     pass
+    # elif received_ack == ACKED_SEQ + 1:
+    #     ACKED_SEQ += 1
+    #     CUR_BYTES_READ -= MSS  # move window by 1 segment
+    # elif received_ack > ACKED_SEQ + 1:
+    #     if received_ack not in CACHE_ACK:
+    #         CACHE_ACK.add(received_ack)
+    # else:
+    #     pass
 
 
 # send all packets in the given window
 def sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads):
-    global SENT_NOT_ACKED
+    global SENT_NOT_ACKED_SEQ
     for seq in range(seq_num, seq_num + window_size_n):
         if seq >= len(data_packets):
             return False  # end of data
-        if seq in SENT_NOT_ACKED:
+        if seq in SENT_NOT_ACKED_SEQ:
             continue  # still waiting for acks, clear when timeout
         else:
-            SENT_NOT_ACKED.append(seq)
+            SENT_NOT_ACKED_SEQ.append(seq)
         data = data_packets[seq]
         if len(data) == chunk_size:
             threads.append(
@@ -107,9 +141,9 @@ def readChunks(file, chunk_size):
 
 
 def readFiles(file_name):
-    global CUR_ACKED_NUM
+    global ACKED_SEQ
     global CUR_BYTES_READ
-    global SENT_NOT_ACKED
+    global SENT_NOT_ACKED_SEQ
     global WINDOW_SIZE
     global seq_num
     # for test
@@ -126,11 +160,11 @@ def readFiles(file_name):
         # update global variables
         for check_seq in range(seq_num, seq_num + window_size_n):
             # check if packets within current window is ACKED
-            if check_seq in SENT_NOT_ACKED and \
-                    check_seq + 1 > CUR_ACKED_NUM and \
+            if check_seq in SENT_NOT_ACKED_SEQ and \
                     check_seq + 1 not in CACHE_ACK:
-                # safely resend the checked seq pkt
-                SENT_NOT_ACKED.remove(check_seq)  # mark as not send -> send it again
+                # and check_seq + 1 > ACKED_SEQ \
+                # resend the checked seq pkt if not in cache
+                SENT_NOT_ACKED_SEQ.remove(check_seq)  # mark as not send -> send it again
 
         # resend packets in current window
         sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads)
@@ -145,7 +179,7 @@ def readFiles(file_name):
             threads = []  # one thread for every sent packet
 
             # while seq_num < len(data_packets):
-            # while CUR_ACKED_NUM <= cur_window_end:
+            # while ACKED_SEQ <= cur_window_end:
 
             t = Timer(TIMEOUT, timeoutAction, args=[seq_num, window_size_n, data_packets, chunk_size, threads])
 
@@ -155,15 +189,15 @@ def readFiles(file_name):
                 if not sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads):
                     break
 
-                while CUR_ACKED_NUM + 1 in CACHE_ACK:
+                while ACKED_SEQ + 1 in CACHE_ACK:
                     t.cancel()
                     t.start()
                     # read ack from cache if out of order
-                    CUR_ACKED_NUM += 1
-                    seq_num = CUR_ACKED_NUM
+                    ACKED_SEQ += 1
+                    seq_num = ACKED_SEQ
 
-                if CUR_ACKED_NUM > seq_num:
-                    seq_num = CUR_ACKED_NUM
+                if ACKED_SEQ > seq_num:
+                    seq_num = ACKED_SEQ
                     t.cancel()
                     t.start()
                     if not sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads):
@@ -177,8 +211,8 @@ def readFiles(file_name):
                 #     pass
 
                 # immediately resend the unACKed packet
-                # if CUR_ACKED_NUM != seq_num:
-                #     seq_num = CUR_ACKED_NUM
+                # if ACKED_SEQ != seq_num:
+                #     seq_num = ACKED_SEQ
                 # # CUR_BYTES_READ += MSS
                 # # while CUR_BYTES_READ > WINDOW_SIZE:
                 # #     # wait for acks

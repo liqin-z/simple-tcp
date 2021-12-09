@@ -61,7 +61,7 @@ def receivePacket(argv):
         )[0]
 
         # prepare an ack tcp-pkt to send
-        ack_packet = TCPPacket(port_listen, ack_port, 0, 0)
+        ack_packet = TCPPacket(port_listen, ack_port, 0, bytes(0))
 
         # checksum passed, store data
         if computed_checksum == stored_checksum:
@@ -75,7 +75,7 @@ def receivePacket(argv):
             if seq_num == EXPECTED_SEQ:
                 EXPECTED_SEQ = updateExpectedSeq(seq_num)
                 for i in range(seq_num, EXPECTED_SEQ):
-                    with open('./' + out_file_name, 'a') as f:
+                    with open('./' + out_file_name, 'ab') as f:
                         f.write(RECEIVED_PKTS[i])
 
             # send ACK to addr_ack, port_ack
@@ -100,17 +100,17 @@ def receivePacket(argv):
             if flag_fin:
                 # end connection
                 ack_packet.updateFlag(fin=1)
-                ack_packet.updataState()
+                ack_packet.updateState()
                 sock.sendto(ack_packet.buildPacket(), (ack_addr, ack_port))
                 break
             else:
-                ack_packet.updataState()
+                ack_packet.updateState()
                 sock.sendto(ack_packet.buildPacket(), (ack_addr, ack_port))
         else:
             # corrupted, send previous ACKed num
             ack_packet.ack_num = CUR_ACKED_NUM
             ack_packet.updateFlag(ack=1)
-            ack_packet.updataState()
+            ack_packet.updateState()
             sock.sendto(ack_packet.buildPacket(), (ack_addr, ack_port))
 
     sock.close()
