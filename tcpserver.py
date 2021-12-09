@@ -1,5 +1,6 @@
 # data receiver
 # tcpserver file listening_port address_for_acks port_for_acks
+
 import struct
 import sys
 import array
@@ -8,6 +9,7 @@ from utils import TCPPacket
 from utils import checkSum
 
 CUR_ACKED_NUM = 0
+
 
 def receivePacket(argv):
     global CUR_ACKED_NUM
@@ -55,11 +57,11 @@ def receivePacket(argv):
             data = received_packet[20:]
 
             # write data to a file
-            with open('./'+out_file_name, 'wb+') as f:
+            with open('./' + out_file_name, 'wb+') as f:
                 f.write(data)
 
             # send ACK to addr_ack, port_ack
-            sock.sendto(str(seq_num+1).encode(), (ack_addr, ack_port))
+            sock.sendto(str(seq_num + 1).encode(), (ack_addr, ack_port))
             CUR_ACKED_NUM = seq_num + 1
         else:
             # the pkt is corrupted
@@ -73,7 +75,7 @@ def receivePacket(argv):
 
         bin_flags = bin(flags).replace("0b", "")
         while len(bin_flags) < 16:
-            bin_flags = "0"+bin_flags
+            bin_flags = "0" + bin_flags
 
         flag_ack = bin_flags[-5]
         flag_rst = bin_flags[-3]
