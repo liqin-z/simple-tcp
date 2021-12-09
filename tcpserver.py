@@ -3,6 +3,7 @@
 
 import sys
 import socket
+from utils import TCPPacket
 
 def receivePacket(argv):
     # Create a UDP socket
@@ -14,12 +15,15 @@ def receivePacket(argv):
     addr_ack = argv[3]
     port_ack = argv[4]
 
-    # receive data from listening port
+    # receive packet from listening port
     sock.bind((addr_ack, int(port_listen)))
     while True:
-        filebytes, addr_udpl = sock.recvfrom(2048)
+        received_packet, addr_udpl = sock.recvfrom(2048)
         # ack_to_send = ""
-        data = filebytes[20:]
+
+        tcp_header = received_packet[:20]
+        print(tcp_header)
+        data = received_packet[20:]
         print(data)
 
         # write data to a file
