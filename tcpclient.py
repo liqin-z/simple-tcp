@@ -21,15 +21,18 @@ WINDOW_SIZE = int(sys.argv[4])  # bytes
 CUR_BYTES_READ = 0
 CUR_ACKED_NUM = 0
 CACHE_ACK = []
-SENT_NOT_ACKED_SEQ_NUM = []  # packet seqs that is not acked
+SENT_NOT_ACKED = []  # packet seqs that is not acked
 TIMEOUT = timedelta(seconds=10)  # seconds
 seq_num = 0
 
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
+sock.bind((sys.argv[2], int(sys.argv[5])))
 
 def sendPacket(argv, data, seq_num, isfin=False):
     global CUR_BYTES_READ
     global CUR_ACKED_NUM
     global CACHE_ACK
+    global sock
     # test
     # print(data)
     addr_udpl = argv[2]  # dest_address
@@ -50,10 +53,6 @@ def sendPacket(argv, data, seq_num, isfin=False):
     header = packet.buildPacket()
     packet = header + data
 
-    sock = socket.socket(socket.AF_INET,
-                         socket.SOCK_DGRAM)  # UDP
-
-    sock.bind((addr_udpl, int(port_ack)))
     sock.sendto(packet, (addr_udpl, int(port_udpl)))
 
     # receive acks from server
@@ -75,14 +74,14 @@ def sendPacket(argv, data, seq_num, isfin=False):
 
 # send all packets in the given window
 def sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads):
-    global SENT_NOT_ACKED_SEQ_NUM
+    global SENT_NOT_ACKED
     for seq in range(seq_num, seq_num + window_size_n):
         if seq >= len(data_packets):
             return False  # end of data
-        if seq in SENT_NOT_ACKED_SEQ_NUM:
+        if seq in SENT_NOT_ACKED:
             continue  # still waiting for acks, clear when timeout
         else:
-            SENT_NOT_ACKED_SEQ_NUM.append(seq)
+            SENT_NOT_ACKED.append(seq)
         data = data_packets[seq]
         if len(data) == chunk_size:
             threads.append(
@@ -110,28 +109,28 @@ def readChunks(file, chunk_size):
 def readFiles(file_name):
     global CUR_ACKED_NUM
     global CUR_BYTES_READ
-    global SENT_NOT_ACKED_SEQ_NUM
+    global SENT_NOT_ACKED
     global WINDOW_SIZE
     global seq_num
     # for test
-    # chunk_size = 2
-    chunk_size = MSS - 20
+    chunk_size = 2
+    # chunk_size = MSS - 20
     data_packets = []
 
     def timeoutAction(seq_num, window_size_n, data_packets, chunk_size, threads):
         # reset timer
         t.cancel()
-        t = Timer(TIMEOUT, timeoutAction, args=[seq_num, window_size_n, data_packets, chunk_size, threads])
+        t = Timer(TIMEOUT, timeoutAction, args=(seq_num, window_size_n, data_packets, chunk_size, threads))
         t.start()
 
         # update global variables
         for check_seq in range(seq_num, seq_num + window_size_n):
             # check if packets within current window is ACKED
-            if check_seq in SENT_NOT_ACKED_SEQ_NUM and \
+            if check_seq in SENT_NOT_ACKED and \
                     check_seq + 1 > CUR_ACKED_NUM and \
                     check_seq + 1 not in CACHE_ACK:
                 # safely resend the checked seq pkt
-                SENT_NOT_ACKED_SEQ_NUM.remove(check_seq)  # mark as not send -> send it again
+                SENT_NOT_ACKED.remove(check_seq)  # mark as not send -> send it again
 
         # resend packets in current window
         sendPacketInWindow(seq_num, window_size_n, data_packets, chunk_size, threads)

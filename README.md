@@ -28,7 +28,7 @@ WINDOW_SIZE                 # Window size
 CUR_BYTES_READ              # not used 
 CUR_ACKED_NUM               # record the maximum of received continuous sequence number
 CACHE_ACK                   # record all the acks that is received
-SENT_NOT_ACKED_SEQ_NUM      # packet seq_num that is sent but not acked, 
+SENT_NOT_ACKED              # packet seq_num that is sent but not acked, 
                             # the seq_num of current window will be cleared if timeout 
 TIMEOUT                     # resend all packets under current window after this time threshold
 ```
@@ -40,6 +40,7 @@ TIMEOUT                     # resend all packets under current window after this
 - Distinguish sent but not acked
 - Wait for ACKs within timeout range
 - Timeout action -> clean all sent not acked
+- ACK sender thread
 
 
 ### About newudpl
