@@ -26,8 +26,8 @@ Starting from the global variables.
 MSS                         # Maximum segment size 
 WINDOW_SIZE                 # Window size 
 CUR_BYTES_READ              # not used 
-CUR_ACKED_SEQ               # record the maximum of received continuous sequence number
-CACHE_ACK_SEQ               # record all the seq that is acked
+ACKED_SEQ                   # record the maximum of received continuous sequence number
+CACHE_ACK                   # record all the acks
 SENT_NOT_ACKED              # packet seq_num that is sent but not acked, 
                             # the seq_num of current window will be cleared if timeout 
 TIMEOUT                     # resend all packets under current window after this time threshold

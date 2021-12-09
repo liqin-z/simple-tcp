@@ -9,14 +9,14 @@ from utils import TCPPacket
 from utils import checkSum
 from collections import OrderedDict
 
-RECEIVED_PKTS = OrderedDict() # this should be exactly the same as data_packets in sender
+BUFFER = OrderedDict() # this should be exactly the same as data_packets in sender
 CUR_ACKED_NUM = 0
 EXPECTED_SEQ = 0
 
 def updateExpectedSeq(seq):
     global CUR_ACKED_NUM
     res = seq + 1
-    while res in RECEIVED_PKTS:
+    while res in BUFFER:
         res += 1
     CUR_ACKED_NUM = res
     return res
@@ -24,7 +24,7 @@ def updateExpectedSeq(seq):
 def receivePacket(argv):
     global CUR_ACKED_NUM
     global EXPECTED_SEQ
-    global RECEIVED_PKTS
+    global BUFFER
 
     # Create a UDP socket
     sock = socket.socket(socket.AF_INET,
@@ -68,15 +68,15 @@ def receivePacket(argv):
             data = received_packet[20:]
 
             # write data to memory
-            if seq_num not in RECEIVED_PKTS:
-                RECEIVED_PKTS[seq_num] = data
+            if seq_num not in BUFFER:
+                BUFFER[seq_num] = data
 
             # seq is expected, then write data to a file
             if seq_num == EXPECTED_SEQ:
                 EXPECTED_SEQ = updateExpectedSeq(seq_num)
                 for i in range(seq_num, EXPECTED_SEQ):
                     with open('./' + out_file_name, 'ab') as f:
-                        f.write(RECEIVED_PKTS[i])
+                        f.write(BUFFER[i])
 
             # send ACK to addr_ack, port_ack
             ack_packet.ack_num = CUR_ACKED_NUM
