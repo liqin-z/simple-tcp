@@ -18,7 +18,7 @@ def receivePacket(argv):
     out_file_name = argv[1]
     port_listen = argv[2]
     ack_addr = argv[3]
-    ack_port = argv[4]
+    ack_port = int(argv[4])
 
     # receive packet from listening port
     sock.bind((ack_addr, int(port_listen)))

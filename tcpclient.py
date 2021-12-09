@@ -19,8 +19,9 @@ CUR_BYTES_READ = 0
 CUR_ACKED_NUM = 0
 TIMEOUT = 3 # seconds
 
-def sendPacket(argv, data, isfin=False):
+def sendPacket(argv, data, seq_num, isfin=False):
     global CUR_BYTES_READ
+    global CUR_ACKED_NUM
     # test
     # print(data)
     addr_udpl = argv[2]    # dest_address
@@ -36,6 +37,8 @@ def sendPacket(argv, data, isfin=False):
         packet.updateFlag(fin=1)
         packet.updateState()
 
+    packet.seq_num = seq_num
+
     header = packet.buildPacket()
     packet = header + data
 
@@ -47,11 +50,18 @@ def sendPacket(argv, data, isfin=False):
 
 
     # receive acks from server
-    print("can i receive after i send?")
+    # update largest Acked number
     received_ack_num, server_addr = sock.recvfrom(2048)
-    print(received_ack_num.decode())
-    print(server_addr)
-
+    received_ack = int(received_ack_num.decode())
+    if received_ack == CUR_ACKED_NUM:
+        # missing pkg
+        pass
+    elif received_ack == CUR_ACKED_NUM + 1:
+        CUR_ACKED_NUM += 1
+        CUR_BYTES_READ -= MSS # move window by 1 segment
+    else:
+        # out of order pkt or delayed ack - ignore
+        pass
 
 # retransmission_time = datetime.timedelta(seconds=3) # adjust per TCP standard
 
@@ -71,19 +81,30 @@ def readFiles(file_name):
     # for test
     # chunk_size = 2
     chunk_size = MSS - 20
+    data_packets = []
     try:
         with open(file_name, mode="rb") as f:
             for data in readChunks(f, chunk_size):
-                CUR_BYTES_READ += MSS
-                while CUR_BYTES_READ > WINDOW_SIZE:
-                    # wait for acks
-                    pass
+                data_packets.append(data)
+
+            seq_num = 0
+            while seq_num < len(data_packets):
+                # my decision of solving out of order packets
+                # immediately resend the unACKed packet
+                if CUR_ACKED_NUM != seq_num:
+                    seq_num = CUR_ACKED_NUM
+                # CUR_BYTES_READ += MSS
+                # while CUR_BYTES_READ > WINDOW_SIZE:
+                #     # wait for acks
+                #     pass
+                # else:
+                data = data_packets[seq_num]
+                if len(data) == chunk_size:
+                    sendPacket(sys.argv, data, seq_num)
                 else:
-                    if len(data) == chunk_size:
-                        sendPacket(sys.argv, data)
-                    else:
-                        # end of file, close the socket
-                        sendPacket(sys.argv, data, isfin=True)
+                    # end of file, close the socket
+                    sendPacket(sys.argv, data, seq_num, isfin=True)
+                seq_num += 1
 
     except IOError:
         print("Failed to find the file '{}' under current directory!".format(file_name))
