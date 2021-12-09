@@ -70,10 +70,20 @@ def receivePacket(argv):
             "H",
             tcp_header[12:14]
         )[0]
-        print(flags)
 
+        bin_flags = bin(flags).replace("0b", "")
+        while len(bin_flags) < 16:
+            bin_flags = "0"+bin_flags
 
+        flag_ack = bin_flags[-5]
+        flag_rst = bin_flags[-3]
+        flag_syn = bin_flags[-2]
+        flag_fin = bin_flags[-1]
 
+        if flag_fin:
+            break
+
+    sock.close()
 
 
 if __name__ == "__main__":

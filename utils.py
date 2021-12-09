@@ -57,8 +57,15 @@ class TCPPacket:
         ])
         offset_flags = self.data_offset + self.reserved_field + flags
 
+        # print("flags")
+        # print(offset_flags)
+
         # convert to integer and pack into tcp header as bytes
         offset_flag_int = ba2int(offset_flags)
+
+        # print("ints")
+        # print(offset_flag_int)
+
         offset_flags_byte = struct.pack(
             'H',
             offset_flag_int
