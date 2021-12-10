@@ -45,7 +45,7 @@ class DATAThread(Thread):
         for i in range(window_n):
             if i + window_start >= len(packets):
                 break
-            print("index: ", i+window_start, " sent.")
+            print("packet seq#", i+window_start, "sent.")
             sock.sendto(packets[i+window_start], (self.udpl_addr, int(self.udpl_port)))
 
     def join(self, timeout=0):
@@ -70,7 +70,6 @@ class ACKThread(Thread):
                 ack_header[8:12]
             )[0]
 
-            # print(ack_num)
             if ack_num not in CACHE_ACK:
                 CACHE_ACK.add(ack_num)
 
@@ -119,10 +118,9 @@ def readFiles(file_name):
     global packets
 
     # for test
-    chunk_size = 2
+    chunk_size = 35
     # chunk_size = MSS - 20
     data_packets = []
-
 
     try:
         with open(file_name, mode="rb") as f:
@@ -135,9 +133,6 @@ def readFiles(file_name):
                     packets[i] = preparePacket(sys.argv, data_packets[i], i, isfin=True)
                 else:
                     packets[i] = preparePacket(sys.argv, data_packets[i], i, isfin=False)
-
-            # number of packets in the window
-            window_size_n = WINDOW_SIZE // MSS
 
             ackThread = ACKThread(len(data_packets))
             ackThread.start()
@@ -158,7 +153,6 @@ def readFiles(file_name):
                     window_move_flag = 0
                     dataThread.start()
                     dataThread.join(10)
-
 
     except IOError:
         print("Failed to find the file '{}' under current directory!".format(file_name))

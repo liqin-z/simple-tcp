@@ -3,6 +3,7 @@
 
 import struct
 import sys
+import os
 import array
 import socket
 from utils import TCPPacket
@@ -118,5 +119,7 @@ def receivePacket(argv):
 
 
 if __name__ == "__main__":
-    # print(sys.argv)
+    # to refresh the output file
+    if os.path.exists('./outfile'):
+        os.remove('./outfile')
     receivePacket(sys.argv)
