@@ -28,6 +28,7 @@ window_move_flag = False
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # UDP
 sock.bind((sys.argv[2], int(sys.argv[5])))
 
+
 class DATAThread(Thread):
     def __init__(self, addr, port):
         Thread.__init__(self)
@@ -80,6 +81,7 @@ class ACKThread(Thread):
 
     def join(self, timeout=0):
         Thread.join(self, timeout)
+
 
 def preparePacket(argv, data, seq_num, isfin=False):
     port_udpl = argv[3]
@@ -136,13 +138,13 @@ def readFiles(file_name):
                 if window_start >= len(data_packets):
                     break
                 if window_start not in CACHE_ACK and window_move_flag:
-                    t = time() # reset timer
+                    t = time()  # reset timer
                     dataThread = DATAThread(sys.argv[2], sys.argv[3])
                     window_move_flag = 0
                     dataThread.start()
                     dataThread.join(TIMEOUT)
                 if time() - t > 1:
-                    t = time() # reset timer
+                    t = time()  # reset timer
                     dataThread = DATAThread(sys.argv[2], sys.argv[3])
                     window_move_flag = 0
                     dataThread.start()
