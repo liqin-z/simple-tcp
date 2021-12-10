@@ -41,7 +41,7 @@ TIMEOUT                     # resend all packets under current window after this
 - Wait for ACKs within timeout range
 - Timeout action -> clean all sent not acked
 - ACK sender thread
-
+- revise packet build to include data
 
 ### About newudpl
 http://www.cs.columbia.edu/~hgs/research/projects/newudpl/newudpl-1.4/newudpl.html

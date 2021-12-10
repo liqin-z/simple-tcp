@@ -78,6 +78,7 @@ def receivePacket(argv):
                     with open('./' + out_file_name, 'ab') as f:
                         f.write(BUFFER[i])
 
+            print("seq: {}, ack:{}".format(seq_num, CUR_ACKED_NUM))
             # send ACK to addr_ack, port_ack
             ack_packet.ack_num = CUR_ACKED_NUM
             ack_packet.updateFlag(ack=1)
@@ -91,11 +92,11 @@ def receivePacket(argv):
             bin_flags = bin(flags).replace("0b", "")
             while len(bin_flags) < 16:
                 bin_flags = "0" + bin_flags
-            flag_ack = bin_flags[-5]
-            flag_rst = bin_flags[-3]
-            flag_syn = bin_flags[-2]
+            flag_ack = int(bin_flags[-5])
+            flag_rst = int(bin_flags[-3])
+            flag_syn = int(bin_flags[-2])
             # above are not used for functionality in PA2
-            flag_fin = bin_flags[-1]
+            flag_fin = int(bin_flags[-1])
 
             if flag_fin:
                 # end connection
