@@ -16,13 +16,11 @@ from bitarray import bitarray
 from bitarray.util import ba2int
 from utils import TCPPacket
 
-MSS = 576  # bytes
+PACKET_SIZE = 100  # bytes
 WINDOW_SIZE = int(sys.argv[4])  # bytes
-CUR_BYTES_READ = 0
 ACKED_SEQ = 0
 CACHE_ACK = set()
-SENT_NOT_ACKED_SEQ = []  # packet seqs that is not acked
-TIMEOUT = timedelta(seconds=10)  # seconds
+TIMEOUT = 10
 window_start = 0
 packets = None
 window_move_flag = False
@@ -41,12 +39,12 @@ class DATAThread(Thread):
         global window_move_flag
         global packets
         global sock
-        window_n = WINDOW_SIZE // MSS
-        for i in range(window_n):
-            if i + window_start >= len(packets):
+        window_n = WINDOW_SIZE // PACKET_SIZE
+        for i in range(window_start, window_start + window_n):
+            if i >= len(packets):
                 break
-            print("packet seq#", i+window_start, "sent.")
-            sock.sendto(packets[i+window_start], (self.udpl_addr, int(self.udpl_port)))
+            print("packet", i, "sent.")
+            sock.sendto(packets[i], (self.udpl_addr, int(self.udpl_port)))
 
     def join(self, timeout=0):
         Thread.join(self, timeout)
@@ -110,16 +108,12 @@ def readChunks(file, chunk_size):
 
 def readFiles(file_name):
     global ACKED_SEQ
-    global CUR_BYTES_READ
-    global SENT_NOT_ACKED_SEQ
     global WINDOW_SIZE
     global window_start
     global window_move_flag
     global packets
 
-    # for test
-    chunk_size = 35
-    # chunk_size = MSS - 20
+    chunk_size = PACKET_SIZE - 20
     data_packets = []
 
     try:
@@ -146,17 +140,17 @@ def readFiles(file_name):
                     dataThread = DATAThread(sys.argv[2], sys.argv[3])
                     window_move_flag = 0
                     dataThread.start()
-                    dataThread.join(10)
+                    dataThread.join(TIMEOUT)
                 if time() - t > 1:
                     t = time() # reset timer
                     dataThread = DATAThread(sys.argv[2], sys.argv[3])
                     window_move_flag = 0
                     dataThread.start()
-                    dataThread.join(10)
+                    dataThread.join(TIMEOUT)
 
     except IOError:
         print("Failed to find the file '{}' under current directory!".format(file_name))
-    # ackThread.join()
+    ackThread.join()
     return
 
 

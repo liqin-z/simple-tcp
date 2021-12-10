@@ -50,12 +50,12 @@ def receivePacket(argv):
 
         # compute checksum to verify correctness
         # set chksum field to 0 to perform checksum to validate
-        pkt_deep_copy = bytearray(received_packet[:])
-        pkt_deep_copy[16:18] = struct.pack(
+        pkt_copy = bytearray(received_packet[:])
+        pkt_copy[16:18] = struct.pack(
             "H",
             0
         )
-        computed_checksum = checkSum(pkt_deep_copy)
+        computed_checksum = checkSum(pkt_copy)
         stored_checksum = struct.unpack(
             "H",
             tcp_header[16:18]
